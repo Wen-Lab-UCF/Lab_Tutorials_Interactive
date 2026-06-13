@@ -6,12 +6,12 @@ logical sequence rather than the order issues were discovered.
 
 ## Table of Contents
 
-- [0. Hardware & OS](#0-hardware--os)
-- [1. Multi-user foundation](#1-multi-user-foundation)
+- [1. Multi-user foundation and SSH](#1-multi-user-foundation-and-SSH)
   - [Separate accounts](#separate-accounts-never-share-one-login)
   - [SSH access](#ssh-access-the-backbone-for-34-simultaneous-users)
   - [Shared directory](#shared-directory-for-collaboration)
   - [Rename the machine](#rename-the-machine-optional)
+  - [Access the SSH on Remote PC](#access-the-ssh-on-remote-pc)
 - [2. Resource limits](#2-resource-limits-so-one-user-cant-starve-the-box)
   - [CPU / memory per user](#cpu--memory-per-user-systemd-slices)
   - [Disk quotas](#disk-quotas-4-tb-drive)
@@ -36,15 +36,8 @@ logical sequence rather than the order issues were discovered.
 
 ---
 
-## 0. Hardware & OS
 
-- **Workstation:** 2× NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition,
-  96 GB each (192 GB total GPU memory), 4 TB NVMe, Ubuntu 24.04 LTS.
-- **GPU compute capability:** sm_120 (Blackwell).
-
----
-
-## 1. Multi-user foundation
+## 1. Multi-user foundation and SSH
 
 ### Create and config new account (never share one login)
 
@@ -188,7 +181,7 @@ admin@wenlab-workstation:~$ sudo systemctl set-property user-1001.slice CPUQuota
 ### Disk quotas (4 TB drive)
 
 > **Hard-won lesson:** a typo in `/etc/fstab` (`defaut` instead of `defaults`)
-> caused a boot failure. **Always validate fstab before rebooting.**
+> caused a boot failure. **Always validate your spelling is correct when editting a config file**
 
 1. Enable quotas on the root filesystem:
 
