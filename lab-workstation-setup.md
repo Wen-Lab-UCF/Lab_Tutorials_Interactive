@@ -32,7 +32,6 @@ logical sequence rather than the order issues were discovered.
   - [File transfer](#file-transfer)
   - [GUI for users](#gui-for-users)
 - [8. Monitoring](#8-monitoring-real-time)
-- [Appendix: NVIDIA DGX Spark](#appendix-nvidia-dgx-spark-different-architecture)
 - [Outstanding to-dos](#outstanding-to-dos)
 
 ---
@@ -42,21 +41,19 @@ logical sequence rather than the order issues were discovered.
 - **Workstation:** 2× NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition,
   96 GB each (192 GB total GPU memory), 4 TB NVMe, Ubuntu 24.04 LTS.
 - **GPU compute capability:** sm_120 (Blackwell).
-- *(Optional secondary device:* NVIDIA DGX Spark — a **different architecture**;
-  see the appendix.)
 
 ---
 
 ## 1. Multi-user foundation
 
-### Separate accounts (never share one login)
+### Create and config new account (never share one login)
 
 ```bash
 admin@wenlab-workstation:~$ sudo adduser alice
 admin@wenlab-workstation:~$ sudo usermod -aG sudo alice    # only for admins who need to install software
 ```
 
-### SSH access (the backbone for 3–4 simultaneous users)
+### Enable SSH access (the backbone for 3–4 simultaneous users)
 
 ```bash
 admin@wenlab-workstation:~$ sudo apt update
@@ -78,7 +75,7 @@ from off-site you'd need a VPN into that network. From their own machine users
 open a terminal (Linux/Mac/WSL), PowerShell (Windows with OpenSSH), or an SSH
 client like PuTTY/MobaXterm, then enter their password when prompted.
 
-### Shared directory for collaboration
+### Setup Shared directory for collaboration
 
 ```bash
 admin@wenlab-workstation:~$ sudo mkdir /srv/shared
@@ -97,6 +94,79 @@ admin@wenlab-workstation:~$ sudo nano /etc/hosts               # update the 127.
 
 Use lowercase letters, digits, hyphens only. Reachable at
 `wenlab-workstation.local` via mDNS.
+
+### Access the SSH on Remote PC
+
+Once SSH is enabled on the workstation, users connect from their own machine
+using their account name and the workstation's IP (or `wenlab-workstation.local`
+if you're on the same network and mDNS works). Replace `alice` with your
+username and `<ip>` with the address from `hostname -I`.
+
+**1. Linux (Ubuntu / Fedora / Mint, etc.)** — Open a terminal and run:
+
+```bash
+alice@laptop:~$ ssh alice@<ip>                      # e.g. ssh alice@192.168.1.42
+alice@laptop:~$ ssh alice@wenlab-workstation.local  # if on the same network
+```
+
+The first time you connect you'll be asked to confirm the host's fingerprint —
+type `yes`, then enter your password when prompted.
+
+> **Troubleshoot — `ssh: command not found`?** The OpenSSH client isn't
+> installed. Install it with your distro's package manager:
+>
+> ```bash
+> alice@laptop:~$ sudo apt install openssh-client      # Debian / Ubuntu / Mint
+> alice@laptop:~$ sudo dnf install openssh-clients     # Fedora / RHEL
+> alice@laptop:~$ sudo pacman -S openssh               # Arch
+> ```
+
+**2. macOS** — The built-in Terminal (or iTerm2) ships with an SSH client, so the
+command is identical to Linux:
+
+```bash
+alice@macbook:~$ ssh alice@<ip>
+```
+
+> **Troubleshoot — `ssh: command not found`?** OpenSSH ships with macOS, so this
+> is rare. If it's missing, install the Command Line Tools (which include `ssh`)
+> or use [Homebrew](https://brew.sh/):
+>
+> ```bash
+> alice@macbook:~$ xcode-select --install   # installs Apple's command line tools
+> alice@macbook:~$ brew install openssh     # or via Homebrew
+> ```
+
+**3. Windows** — There are two common options:
+
+- **PowerShell / Command Prompt (built-in OpenSSH client):** modern Windows 10/11
+  includes `ssh`, so you can connect directly:
+
+  ```powershell
+  PS C:\Users\alice> ssh alice@<ip>
+  ```
+
+  > **Troubleshoot — `ssh : The term 'ssh' is not recognized`?** The OpenSSH
+  > client isn't installed. Add it via *Settings → Apps → Optional features →
+  > Add a feature → OpenSSH Client*, or run this in an **Administrator**
+  > PowerShell:
+  >
+  > ```powershell
+  > PS C:\Users\alice> Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+  > ```
+  >
+  > Close and reopen the terminal afterward so `ssh` is on your `PATH`.
+
+- **PuTTY / MobaXterm (GUI clients):** download [PuTTY](https://www.putty.org/)
+  or [MobaXterm](https://mobaxterm.mobatek.net/), enter the workstation's IP in
+  the **Host Name** field, keep **Port 22** and **SSH** selected, click **Open**,
+  then log in with your username and password.
+
+> **Tip — passwordless login (all platforms):** generate a key pair once with
+> `ssh-keygen -t ed25519`, copy the public key to the workstation with
+> `ssh-copy-id alice@<ip>` (on Windows, use
+> `type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh alice@<ip> "cat >> ~/.ssh/authorized_keys"`),
+> and you'll no longer be prompted for a password on future connections.
 
 ---
 
@@ -663,7 +733,7 @@ WinSCP, Cyberduck, or `sftp://` in GNOME Files) use the same backend.
   - **x2go** (rides over SSH/port 22): `sudo apt install x2goserver
     x2goserver-xsession` (may need `ppa:x2go/stable`). Client via package
     manager — `winget install X2go.x2goclient` (Win),
-    `brew install --cask x2goclient xquartz` (Mac), `apt install x2goclient`
+    `brew install --cask x2goclient xquartz` (Mac), `sudo apt install x2goclient`
     (Linux).
   - **xrdp** (easier for Windows users — RDP is built into Windows):
     `sudo apt install xrdp && sudo systemctl enable --now xrdp`, then
@@ -686,25 +756,6 @@ admin@wenlab-workstation:~$ watch -n 1 <cmd>     # turn any snapshot command int
 ```
 
 Recommended day-to-day: `htop` + `nvitop` in two tmux panes.
-
----
-
-## Appendix: NVIDIA DGX Spark (different architecture)
-
-The DGX Spark is **not** x86 — it's the GB10 Grace Blackwell Superchip:
-
-- **CPU:** Arm (aarch64, Armv9.2-A) — verify with `uname -m` → `aarch64`.
-- **GPU:** GB10 Blackwell, compute capability **sm_121** (note: different from
-  the workstation's sm_120), 128 GB unified CPU+GPU memory, CUDA 13.
-- **OS:** NVIDIA DGX OS (Ubuntu 24.04 base).
-
-Implications:
-
-- Use the **aarch64** Miniconda: `Miniconda3-latest-Linux-aarch64.sh`.
-- Prefer the **conda-forge** channel for packages lacking ARM wheels.
-- **Stock PyTorch may lack sm_121 kernels** (many builds stop at sm_120) — use
-  NVIDIA's Spark-targeted PyTorch builds/NGC containers, and verify GPU works
-  with a small `cuda:0` tensor op before relying on it.
 
 ---
 
