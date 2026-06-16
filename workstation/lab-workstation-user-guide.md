@@ -173,7 +173,7 @@ alice@wenlab-workstation:~$ nvidia-smi -L          # lists the MIG-... UUIDs
 Run your job pinned to your slice:
 
 ```bash
-alice@wenlab-workstation:~$ CUDA_VISIBLE_DEVICES=MIG-<your-uuid> python train.py
+alice@wenlab-workstation:~$ CUDA_VISIBLE_DEVICES=<your-uuid> python train.py
 ```
 
 In your code, refer to it as `cuda:0`:
