@@ -104,7 +104,123 @@ alice@macbook:~$ ssh alice@<ip>
 > and you'll no longer be prompted for a password on future connections.
 
 ---
-
+### Skip the password: SSH key login
+ 
+Typing your password on every connection gets old fast. With an **SSH key** you
+authenticate once and never again: a key pair lives on your own machine, the
+workstation trusts its public half, and future logins are instant with no
+password prompt. Set this up once per machine you connect *from*.
+ 
+**1. Make a key pair on your own machine.** Skip this if you already have one —
+check with `ls ~/.ssh/*.pub`, and if you see a `.pub` file you can reuse it (one
+key works for many servers). Otherwise generate one:
+ 
+```bash
+alice@laptop:~$ ssh-keygen -t ed25519 -C "alice laptop"
+```
+ 
+Press Enter to accept the default path (`~/.ssh/id_ed25519`), and for fully
+passwordless login leave the passphrase empty (just press Enter). This creates
+two files: `id_ed25519` (the **private** key — keep it on this machine, never
+share it) and `id_ed25519.pub` (the **public** key — safe to copy anywhere).
+ 
+> **Want a dedicated, custom-named key?** Add `-f` to choose the filename, e.g.
+> `ssh-keygen -t ed25519 -f ~/.ssh/wenlab_key`. A non-default name isn't tried
+> automatically, so point SSH at it when connecting with `-i ~/.ssh/wenlab_key`
+> (or via the `IdentityFile` line in the config alias below). Don't re-run
+> `ssh-keygen` onto an existing key's path — if it asks `Overwrite (y/n)?`, say
+> **no**, or you'll break logins that already trust the old key.
+ 
+**2. Copy your public key to the workstation.** On **Linux / macOS** it's one
+command — enter your password this one last time:
+ 
+```bash
+alice@laptop:~$ ssh-copy-id alice@<ip>
+```
+ 
+On **Windows**, PowerShell has no `ssh-copy-id`, so push it across manually:
+ 
+```powershell
+PS C:\Users\alice> type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh alice@<ip> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+```
+ 
+(Using a custom-named key from step 1? Point `ssh-copy-id` at it with
+`-i ~/.ssh/wenlab_key.pub`.)
+ 
+**3. Connect — no password this time:**
+ 
+```bash
+alice@laptop:~$ ssh alice@<ip>
+```
+ 
+You should land straight in. If it still asks for a password, it's almost always
+permissions on the workstation side — `~/.ssh` must be `700` and
+`~/.ssh/authorized_keys` must be `600` (the commands above set these for you).
+ 
+> **Tip — a shorter command.** Add a host alias to `~/.ssh/config` on your own
+> machine so you can just type `ssh wenlab`:
+>
+> ```
+> Host wenlab
+>     HostName <ip>
+>     User alice
+>     IdentityFile ~/.ssh/id_ed25519
+> ```
+ 
+> **Connecting from several machines?** Repeat steps 1–2 from each one (laptop,
+> home desktop, …), giving each device its own key. `ssh-copy-id` *appends*, so
+> the keys stack up in the workstation's `authorized_keys` and any of them lets
+> you in — and if you ever retire a machine, you can revoke just its key by
+> deleting its line. The comment you set with `-C` (e.g. `"alice laptop"`) labels
+> each line so you can tell them apart.
+ 
+### Already have an SSH key?
+ 
+If your `~/.ssh` directory already holds a key, you usually don't need to make a
+new one. Here's how to handle the common situations.
+ 
+**You already have `id_ed25519` (or `id_rsa`).** Reuse it. A key isn't tied to
+one server, so the same key you already use elsewhere (GitHub, another machine)
+works here too — just **skip step 1** above and go straight to copying the public
+key (step 2). Do **not** run `ssh-keygen` and save over the existing file: if it
+asks `Overwrite (y/n)?`, answer **no**, because overwriting it would break every
+server that already trusts the old key.
+ 
+**Not sure what you have?** List your existing public keys — any `.pub` file is a
+usable key you can copy over in step 2:
+ 
+```bash
+alice@laptop:~$ ls -l ~/.ssh/*.pub
+```
+ 
+**You have the private key but the `.pub` file is missing.** Regenerate the
+public half from the private key (this does not alter or overwrite the private
+key):
+ 
+```bash
+alice@laptop:~$ ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
+```
+ 
+**You'd rather keep a separate key just for the workstation.** Generate a new one
+with its own name via `-f`, which leaves your existing key untouched:
+ 
+```bash
+alice@laptop:~$ ssh-keygen -t ed25519 -f ~/.ssh/wenlab_key -C "alice wenlab"
+```
+ 
+Then copy `wenlab_key.pub` over and tell SSH to use it:
+ 
+```bash
+alice@laptop:~$ ssh-copy-id -i ~/.ssh/wenlab_key.pub alice@<ip>   # copy it across
+alice@laptop:~$ ssh -i ~/.ssh/wenlab_key alice@<ip>              # or add IdentityFile to ~/.ssh/config
+```
+ 
+> **Your existing key has a passphrase?** That's fine — you'll be asked for the
+> *passphrase* (not your account password) when you connect. To avoid retyping it
+> every time, load it into the agent once per session with
+> `ssh-add ~/.ssh/id_ed25519` (on macOS, `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`).
+ 
+---
 ## 2. Transfer files
 
 These commands run on **your own machine**, pointing at the workstation. Because
